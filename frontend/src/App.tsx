@@ -1,5 +1,5 @@
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 
 type Sport = 'NBA' | 'NFL' | 'MLB' | 'NHL'
@@ -16,34 +16,40 @@ type Game = {
   }[]
 }
 
-const games: Game[] = [
-  {
-    id: 1,
-    sport: 'NBA',
-    away: 'Boston Celtics',
-    home: 'New York Knicks',
-    odds: [
-      { sportsbook: 'DraftKings', away: -110, home: +100 },
-      { sportsbook: 'FanDuel', away: -105, home: -105 },
-      { sportsbook: 'BetMGM', away: -115, home: +105 },
-    ],
-  },
-  {
-    id: 2,
-    sport: 'NFL',
-    away: 'Buffalo Bills',
-    home: 'Kansas City Chiefs',
-    odds: [
-      { sportsbook: 'DraftKings', away: +120, home: -140 },
-      { sportsbook: 'FanDuel', away: +125, home: -145 },
-      { sportsbook: 'BetMGM', away: +115, home: -135 },
-    ],
-  },
-]
-
 function App() {
   const [selectedSport, setSelectedSport] =
     useState<Sport>('NBA')
+
+  const [games, setGames] = useState<Game[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchGames() {
+      try {
+        const response = await fetch(
+          'http://127.0.0.1:8000/api/games'
+        )
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch games')
+        }
+
+        const data: Game[] = await response.json()
+        setGames(data)
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Something went wrong'
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchGames()
+  }, [])
 
   const filteredGames = games.filter(
     (game) => game.sport === selectedSport
@@ -78,34 +84,41 @@ function App() {
           Demonstration data — not live odds
         </p>
 
-        {filteredGames.length === 0 && (
+        {loading && <p>Loading games...</p>}
+
+        {error && (
+          <p role="alert" style={{ color: '#f87171' }}>
+            Error: {error}
+          </p>
+        )}
+
+        {!loading && !error && filteredGames.length === 0 && (
           <p>No games available for this sport yet.</p>
         )}
 
-        {filteredGames.map((game) => (
-          <section className="game-card" key={game.id}>
-            <h3>{game.away} vs {game.home}</h3>
+        {!loading && !error && filteredGames.map((game) => {
+          const bestAway = Math.max(
+            ...game.odds.map((o) => o.away)
+          )
+          const bestHome = Math.max(
+            ...game.odds.map((o) => o.home)
+          )
 
-            <table>
-              <thead>
-                <tr>
-                  <th>Sportsbook</th>
-                  <th>{game.away}</th>
-                  <th>{game.home}</th>
-                </tr>
-              </thead>
+          return (
+            <section className="game-card" key={game.id}>
+              <h3>{game.away} vs {game.home}</h3>
 
-              <tbody>
-                {game.odds.map((book) => {
-                  const bestAway = Math.max(
-                    ...game.odds.map((o) => o.away)
-                  )
+              <table>
+                <thead>
+                  <tr>
+                    <th>Sportsbook</th>
+                    <th>{game.away}</th>
+                    <th>{game.home}</th>
+                  </tr>
+                </thead>
 
-                  const bestHome = Math.max(
-                    ...game.odds.map((o) => o.home)
-                  )
-
-                  return (
+                <tbody>
+                  {game.odds.map((book) => (
                     <tr key={book.sportsbook}>
                       <td>{book.sportsbook}</td>
                       <td className={
@@ -121,12 +134,12 @@ function App() {
                         {book.home}
                       </td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </section>
-        ))}
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )
+        })}
       </main>
     </div>
   )
