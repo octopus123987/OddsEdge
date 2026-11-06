@@ -1,41 +1,20 @@
 
 import { useEffect, useState } from 'react'
+import { fetchGames, type Game, type Sport } from './services/api'
 import './App.css'
 
-type Sport = 'NBA' | 'NFL' | 'MLB' | 'NHL'
-
-type Game = {
-  id: number
-  sport: Sport
-  away: string
-  home: string
-  odds: {
-    sportsbook: string
-    away: number
-    home: number
-  }[]
-}
+const SPORTS: Sport[] = ['NBA', 'NFL', 'MLB', 'NHL']
 
 function App() {
-  const [selectedSport, setSelectedSport] =
-    useState<Sport>('NBA')
-
+  const [selectedSport, setSelectedSport] = useState<Sport>('NBA')
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchGames() {
+    async function loadGames() {
       try {
-        const response = await fetch(
-          'http://127.0.0.1:8000/api/games'
-        )
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch games')
-        }
-
-        const data: Game[] = await response.json()
+        const data = await fetchGames()
         setGames(data)
       } catch (err) {
         setError(
@@ -48,7 +27,7 @@ function App() {
       }
     }
 
-    fetchGames()
+    loadGames()
   }, [])
 
   const filteredGames = games.filter(
@@ -63,19 +42,15 @@ function App() {
       </header>
 
       <nav className="sports-nav">
-        {(['NBA', 'NFL', 'MLB', 'NHL'] as Sport[]).map(
-          (sport) => (
-            <button
-              key={sport}
-              className={
-                selectedSport === sport ? 'active' : ''
-              }
-              onClick={() => setSelectedSport(sport)}
-            >
-              {sport}
-            </button>
-          )
-        )}
+        {SPORTS.map((sport) => (
+          <button
+            key={sport}
+            className={selectedSport === sport ? 'active' : ''}
+            onClick={() => setSelectedSport(sport)}
+          >
+            {sport}
+          </button>
+        ))}
       </nav>
 
       <main>
