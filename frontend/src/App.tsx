@@ -1,20 +1,6 @@
-
 import { useEffect, useState } from 'react'
+import { fetchGames, type Game, type Sport } from './services/api'
 import './App.css'
-
-type Sport = 'NBA' | 'NFL' | 'MLB' | 'NHL'
-
-type Game = {
-  id: number
-  sport: Sport
-  away: string
-  home: string
-  odds: {
-    sportsbook: string
-    away: number
-    home: number
-  }[]
-}
 
 function App() {
   const [selectedSport, setSelectedSport] =
@@ -24,32 +10,29 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function fetchGames() {
-      try {
-        const response = await fetch(
-          'http://127.0.0.1:8000/api/games'
-        )
+  
+    
+useEffect(() => {
+  async function loadGames() {
+    try {
+      setLoading(true)
+      setError(null)
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch games')
-        }
+      const data = await fetchGames()
+      setGames(data)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Something went wrong'
 
-        const data: Game[] = await response.json()
-        setGames(data)
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Something went wrong'
-        )
-      } finally {
-        setLoading(false)
-      }
+      setError(message)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    fetchGames()
-  }, [])
+  loadGames()
+}, [])
+
 
   const filteredGames = games.filter(
     (game) => game.sport === selectedSport
@@ -81,7 +64,7 @@ function App() {
       <main>
         <h2>{selectedSport} Odds Comparison</h2>
         <p className="demo-label">
-          Demonstration data — not live odds
+          Sportsbook odds provided by The Odds API - prices may change
         </p>
 
         {loading && <p>Loading games...</p>}
