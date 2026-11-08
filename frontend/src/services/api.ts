@@ -17,11 +17,13 @@ export interface Game {
 
 const API_BASE_URL = 'http://127.0.0.1:8000'
 
-export async function fetchGames(): Promise<Game[]> {
-  const response = await fetch(`${API_BASE_URL}/api/games`)
+export async function fetchGames(sport: Sport): Promise<Game[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/games?sport=${sport}`
+  )
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch games: ${response.status}`)
+    throw new Error(`Failed to fetch ${sport} games: ${response.status}`)
   }
 
   return response.json()

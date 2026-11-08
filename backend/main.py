@@ -1,22 +1,29 @@
-
 import os
 import time
 
 import requests
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 # Load the API key from backend/.env
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 API_KEY = os.getenv("ODDS_API_KEY")
-ODDS_API_URL = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
+API_BASE_URL = "https://api.the-odds-api.com/v4/sports"
 
-# Cache responses for 5 minutes to conserve API credits
+# Map our dashboard sports to The Odds API sport keys
+SPORT_KEYS = {
+    "NBA": "basketball_nba",
+    "NFL": "americanfootball_nfl",
+    "MLB": "baseball_mlb",
+    "NHL": "icehockey_nhl",
+}
+
+# Cache each sport separately for 5 minutes
 CACHE_DURATION = 300
-cached_games = []
-last_fetch_time = 0
+games_cache = {}
+
 
 app = FastAPI(title="OddsEdge API")
 
@@ -39,12 +46,15 @@ def health():
     return {"status": "ok"}
 
 
-def fetch_live_games():
+def fetch_live_games(sport: str):
     if not API_KEY:
         raise HTTPException(
             status_code=500,
             detail="ODDS_API_KEY is not configured",
         )
+
+    sport_key = SPORT_KEYS[sport]
+    url = f"{API_BASE_URL}/{sport_key}/odds"
 
     params = {
         "apiKey": API_KEY,
@@ -55,7 +65,7 @@ def fetch_live_games():
 
     try:
         response = requests.get(
-            ODDS_API_URL,
+            url,
             params=params,
             timeout=15,
         )
@@ -65,7 +75,7 @@ def fetch_live_games():
     except requests.exceptions.RequestException:
         raise HTTPException(
             status_code=502,
-            detail="Unable to retrieve live sportsbook odds",
+            detail=f"Unable to retrieve {sport} odds",
         )
 
     games = []
@@ -94,7 +104,7 @@ def fetch_live_games():
 
         games.append({
             "id": raw_game["id"],
-            "sport": "NBA",
+            "sport": sport,
             "away": away_team,
             "home": home_team,
             "odds": sportsbook_odds,
@@ -104,20 +114,26 @@ def fetch_live_games():
 
 
 @app.get("/api/games")
-def get_games():
-    global cached_games, last_fetch_time
+def get_games(sport: str = Query(default="NBA")):
+    sport = sport.upper()
+
+    if sport not in SPORT_KEYS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported sport. Choose NBA, NFL, MLB, or NHL.",
+        )
 
     current_time = time.monotonic()
+    cached = games_cache.get(sport)
 
-    if (
-        last_fetch_time != 0
-        and current_time - last_fetch_time < CACHE_DURATION
-    ):
-        return cached_games
+    if cached and current_time - cached["timestamp"] < CACHE_DURATION:
+        return cached["games"]
 
-    games = fetch_live_games()
+    games = fetch_live_games(sport)
 
-    cached_games = games
-    last_fetch_time = time.monotonic()
+    games_cache[sport] = {
+        "timestamp": time.monotonic(),
+        "games": games,
+    }
 
     return games

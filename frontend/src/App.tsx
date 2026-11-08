@@ -10,28 +10,40 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  
-    
-useEffect(() => {
+  useEffect(() => {
+  let cancelled = false
+
   async function loadGames() {
+    setLoading(true)
+    setError(null)
+    setGames([])
+
     try {
-      setLoading(true)
-      setError(null)
+      const data = await fetchGames(selectedSport)
 
-      const data = await fetchGames()
-      setGames(data)
+      if (!cancelled) {
+        setGames(data)
+      }
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Something went wrong'
-
-      setError(message)
+      if (!cancelled) {
+        setError(
+          err instanceof Error ? err.message : 'Something went wrong'
+        )
+      }
     } finally {
-      setLoading(false)
+      if (!cancelled) {
+        setLoading(false)
+      }
     }
   }
 
   loadGames()
-}, [])
+
+  return () => {
+    cancelled = true
+  }
+}, [selectedSport])
+
 
 
   const filteredGames = games.filter(
